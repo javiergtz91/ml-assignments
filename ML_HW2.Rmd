@@ -76,7 +76,7 @@ pol_n = 10
 cv.error =rep(0,pol_n)
 for (i in 1:pol_n ){
  glm.fit = glm(price ~ poly(mileage ,i),data=train_cars)
-  cv.error[i]=cv.glm(train_cars ,glm.fit, K = 5)$delta [1]
+  cv.error[i]=cv.glm(train_cars, glm.fit, K = 5)$delta [1]
 }
 cv.error
 
@@ -97,7 +97,7 @@ ggplot(cv_poly) + geom_line(aes(pol_n, cv.error)) + scale_x_discrete(limits = 1:
 
 ```{r}
 
-degree = 5
+degree = 3
 glm.fit_train = glm(price ~ poly (mileage , degree), data = train_cars)
 
 summary(glm.fit_train)
