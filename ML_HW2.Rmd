@@ -16,6 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(kknn)
 library(ggplot2)
 library(boot)
+library(rpart)
+library(rpart.plot)
 ```
 
 ```{r}
@@ -50,13 +52,15 @@ test_cars <- cars_data[-train, ]
 ols_cars <- lm(price ~mileage, 
                  data = train_cars)
 
+train_cars$ols <- ols_cars$fitted.values
+
 summary(ols_cars)
 ```
 
 ```{r}
 
 
-ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color = 'blue') + geom_smooth(method = 'lm', )
+ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color = 'blue') + geom_line(aes(x = mileage, y = ols))
 
 
 ```
@@ -67,7 +71,7 @@ ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color =
 
 set.seed(17)
 
-pol_n = 5
+pol_n = 10
 
 cv.error =rep(0,pol_n)
 for (i in 1:pol_n ){
@@ -76,11 +80,15 @@ for (i in 1:pol_n ){
 }
 cv.error
 
-pol_n = 1:5
+pol_n = 1:10
 
 cv_poly = data.frame(pol_n, cv.error)
 
-ggplot(cv_poly) + geom_line(aes(pol_n, cv.error)) + scale_x_discrete(limits = 1:5)
+##cv_poly[which.min(cv.error)]
+
+ggplot(cv_poly) + geom_line(aes(pol_n, cv.error)) + scale_x_discrete(limits = 1:10)
+
+### 5
 
 
 ```
@@ -89,7 +97,7 @@ ggplot(cv_poly) + geom_line(aes(pol_n, cv.error)) + scale_x_discrete(limits = 1:
 
 ```{r}
 
-degree = 4
+degree = 5
 glm.fit_train = glm(price ~ poly (mileage , degree), data = train_cars)
 
 summary(glm.fit_train)
@@ -102,6 +110,8 @@ summary(glm.fit_train)
 ```{r}
 
 train_cars$fit <- glm.fit_train$fitted.values
+
+train_cars$fit <- predict(glm.fit_train)
 
 
 ggplot(train_cars) + geom_point(aes(x = mileage, y = price), alpha = .5, color = 'blue') + geom_line(aes(x = mileage, y = fit))
@@ -117,11 +127,21 @@ ggplot(train_cars) + geom_point(aes(x = mileage, y = price), alpha = .5, color =
 
 set.seed(99)
 
-kv = seq(from= 391, to=400, length.out = 10)
+kv = seq(from= 392, to=410, length.out = 10)
 
 cv1 = docvknn(matrix(train_cars$mileage,ncol=1), train_cars$price,kv,nfold=5)
 
 cv1
+
+
+k_plot = data.frame(kv,cv1)
+
+## CV ERROR PLOT
+
+ggplot(k_plot, aes(x,cv1)) + geom_line()
+
+
+## OPTIMAL K & FITTED VALUES
 
 kbest = kv[which.min(cv1)]
 
@@ -132,11 +152,14 @@ kfbest = kknn(price~mileage,train_cars,data.frame(mileage=sort(train_cars$mileag
 
 train_cars$fit_k <- kfbest$fitted.values
 
+## PLOTS
 
-plot(train_cars$mileage,train_cars$price,cex.lab=1.2)
-lines(sort(train_cars$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
+#plot(train_cars$mileage,train_cars$price,cex.lab=1.2)
+#lines(sort(train_cars$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
 
 
+ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color = 'blue') + 
+  geom_line(aes(x = sort(mileage) , y = fit_k))
 
 
 ```
@@ -144,31 +167,34 @@ lines(sort(train_cars$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
 
 ```{r}
 
-## REGRESSION TREES
+## REGRESSION TREE
 
-set.seed(99)
+tree = rpart(price ~ mileage, data = train_cars, method = "anova", control = rpart.control(minsplit = 10, cp = 0.001)) 
 
-kv = seq(from= 391, to=400, length.out = 10)
+## LEAFS
 
-cv1 = docvknn(matrix(train_cars$mileage,ncol=1), train_cars$price,kv,nfold=5)
+length(tree$frame$var[tree$frame$var=="<leaf>"])
 
-cv1
+## OPTIMAL PARAMETER CP
 
-kbest = kv[which.min(cv1)]
-
-kbest
-
-kfbest = kknn(price~mileage,train_cars,data.frame(mileage=sort(train_cars$mileage)), k=kbest,kernel = "rectangular")
+cptable = printcp(tree)
+bestcp = cptable[ which.min(cptable[,"xerror"]), "CP" ]
+bestcp
 
 
-train_cars$fit_k <- kfbest$fitted.values
+## PLOTS
 
+rpart.plot(tree)
 
-plot(train_cars$mileage,train_cars$price,cex.lab=1.2)
-lines(sort(train_cars$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
+plotcp(tree)
+```
+```{r}
 
+## REGRESSION TREE FITTED VALUES AND PLOT
 
+train_cars$fit_tree <- predict(tree)
+
+ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color = 'blue') + geom_line(aes(x = mileage, y = fit_tree))
 
 
 ```
-
