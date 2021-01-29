@@ -9,22 +9,166 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Data Review
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+library(kknn)
+library(ggplot2)
+library(boot)
 ```
 
-## Including Plots
+```{r}
+download.file(
+"https://github.com/ChicagoBoothML/MLClassData/raw/master/UsedCars/UsedCars.csv",
+"UsedCars.csv")
 
-You can also embed plots, for example:
+cars_data <- read.csv("UsedCars.csv")
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+download.file("https://raw.githubusercontent.com/ChicagoBoothML/HelpR/master/docv.R", "docv.R")
+
+source("docv.R") 
+
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### 2. TRAIN - TEST SPLIT
+
+```{r}
+train <- sample.int(nrow(cars_data), replace=FALSE, size = floor(.75*nrow(cars_data)))
+train_cars<- cars_data[train, ]
+test_cars <- cars_data[-train, ]
+
+```
+
+
+### 3. OLS MODEL & PLOT
+
+```{r}
+
+ols_cars <- lm(price ~mileage, 
+                 data = train_cars)
+
+summary(ols_cars)
+```
+
+```{r}
+
+
+ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color = 'blue') + geom_smooth(method = 'lm', )
+
+
+```
+
+### POLYNOMIAL MODEL
+
+```{r}
+
+set.seed(17)
+
+pol_n = 5
+
+cv.error =rep(0,pol_n)
+for (i in 1:pol_n ){
+ glm.fit = glm(price ~ poly(mileage ,i),data=train_cars)
+  cv.error[i]=cv.glm(train_cars ,glm.fit, K = 5)$delta [1]
+}
+cv.error
+
+pol_n = 1:5
+
+cv_poly = data.frame(pol_n, cv.error)
+
+ggplot(cv_poly) + geom_line(aes(pol_n, cv.error)) + scale_x_discrete(limits = 1:5)
+
+
+```
+
+
+
+```{r}
+
+degree = 4
+glm.fit_train = glm(price ~ poly (mileage , degree), data = train_cars)
+
+summary(glm.fit_train)
+
+
+```
+
+
+
+```{r}
+
+train_cars$fit <- glm.fit_train$fitted.values
+
+
+ggplot(train_cars) + geom_point(aes(x = mileage, y = price), alpha = .5, color = 'blue') + geom_line(aes(x = mileage, y = fit))
+
+```
+
+### 5. KNN & REGRESSION TREES
+
+
+```{r}
+
+## KNN
+
+set.seed(99)
+
+kv = seq(from= 391, to=400, length.out = 10)
+
+cv1 = docvknn(matrix(train_cars$mileage,ncol=1), train_cars$price,kv,nfold=5)
+
+cv1
+
+kbest = kv[which.min(cv1)]
+
+kbest
+
+kfbest = kknn(price~mileage,train_cars,data.frame(mileage=sort(train_cars$mileage)), k=kbest,kernel = "rectangular")
+
+
+train_cars$fit_k <- kfbest$fitted.values
+
+
+plot(train_cars$mileage,train_cars$price,cex.lab=1.2)
+lines(sort(train_cars$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
+
+
+
+
+```
+
+
+```{r}
+
+## REGRESSION TREES
+
+set.seed(99)
+
+kv = seq(from= 391, to=400, length.out = 10)
+
+cv1 = docvknn(matrix(train_cars$mileage,ncol=1), train_cars$price,kv,nfold=5)
+
+cv1
+
+kbest = kv[which.min(cv1)]
+
+kbest
+
+kfbest = kknn(price~mileage,train_cars,data.frame(mileage=sort(train_cars$mileage)), k=kbest,kernel = "rectangular")
+
+
+train_cars$fit_k <- kfbest$fitted.values
+
+
+plot(train_cars$mileage,train_cars$price,cex.lab=1.2)
+lines(sort(train_cars$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
+
+
+
+
+```
+
