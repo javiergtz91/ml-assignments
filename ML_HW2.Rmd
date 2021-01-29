@@ -9,7 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Data Review
+## Data load & Review
 
 ```{r}
 
@@ -65,7 +65,7 @@ ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color =
 
 ```
 
-### POLYNOMIAL MODEL
+### 4. POLYNOMIAL MODEL
 
 ```{r}
 
@@ -101,6 +101,7 @@ degree = 3
 glm.fit_train = glm(price ~ poly (mileage , degree), data = train_cars)
 
 summary(glm.fit_train)
+
 
 
 ```
@@ -187,7 +188,27 @@ bestcp
 rpart.plot(tree)
 
 plotcp(tree)
+
+## PRUNE BY BEST CP (MINIMUM)
+
+pruned.tree <-prune(tree, cp = bestcp)
+length(pruned.tree$frame$var[pruned.tree$frame$var=="<leaf>"])
+
+prp(pruned.tree, type = 1, extra = 1, split.font = 1, varlen = -10)
 ```
+```{r}
+
+## REGRESSION TREE FITTED VALUES AND PLOT
+
+train_cars$fit_tree <- predict(pruned.tree)
+
+ggplot(train_cars, aes(x = mileage, y = price)) + geom_point(alpha = .5, color = 'blue') + geom_line(aes(x = mileage, y = fit_tree))
+
+
+```
+
+### 6. Multiple Predictors
+
 ```{r}
 
 ## REGRESSION TREE FITTED VALUES AND PLOT
